@@ -774,22 +774,40 @@ qint64 WebSocket::writeFrame(const QByteArray &frame)
 /*!
 	\internal
  */
-QString readLine(QTcpSocket *pSocket)
+QString readLine(QTcpSocket *pSocket, bool* ok=NULL)
 {
-	QString line;
-	char c;
-	while (pSocket->getChar(&c))
+	QString	line;
+	char 	c;
+	bool    isOk = false;
+	
+	while (true)
 	{
-		if (c == '\r')
+		if (pSocket->getChar(&c))
 		{
-			pSocket->getChar(&c);
-			break;
+			if (c == '\r')
+			{
+				pSocket->getChar(&c);
+				isOk = true;
+				
+				break;
+			}
+			else
+			{
+				line.append(QChar(c));
+			}
 		}
 		else
 		{
-			line.append(QChar(c));
+			if( !pSocket->waitForReadyRead() )
+                		break;
 		}
 	}
+	
+	if (!isOk && ((ok!=NULL)))
+	{
+        	*ok = false;
+	}
+	
 	return line;
 }
 
@@ -836,7 +854,10 @@ void WebSocket::processHandshake(QTcpSocket *pSocket)
 		while (!headerLine.isEmpty())
 		{
 			QStringList headerField = headerLine.split(QString(": "), QString::SkipEmptyParts);
-			headers.insertMulti(headerField[0], headerField[1]);
+			
+			if (headerField.count()>1)
+				headers.insertMulti(headerField[0], headerField[1]);
+				
 			headerLine = readLine(pSocket);
 		}
 
